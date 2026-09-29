@@ -162,6 +162,8 @@ export interface Challenge<F extends Fixtures = Fixtures> {
     avgTokens: number | null; // null until calibrated
     avgSteps: number | null;
   };
+  /** Per-test token cap, 3x reference avgTokens after calibration; env MAX_TEST_TOKENS stays the upper bound. */
+  maxTestTokens: number | null;
   safetyRules: SafetyRule[];
 }
 

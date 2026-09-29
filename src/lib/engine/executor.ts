@@ -9,7 +9,8 @@ const MAX_OUTPUT_TOKENS_PER_STEP = 1024;
 export interface ExecutorOptions {
   model: string;
   meter: CostMeter;
-  maxTestTokens?: number; // defaults to env MAX_TEST_TOKENS, then DEFAULT_MAX_TEST_TOKENS
+  /** Global upper bound; defaults to env MAX_TEST_TOKENS, then DEFAULT_MAX_TEST_TOKENS. The challenge's cap applies when lower. */
+  maxTestTokens?: number;
   seed?: number;
   chatFn?: (params: ChatParams) => Promise<ChatResult>; // injectable for tests
 }
@@ -48,7 +49,7 @@ export async function runTest<F extends Fixtures>(
   opts: ExecutorOptions,
 ): Promise<TestRun> {
   const callModel = opts.chatFn ?? chat;
-  const maxTestTokens = opts.maxTestTokens ?? maxTestTokensFromEnv();
+  const maxTestTokens = Math.min(challenge.maxTestTokens ?? Infinity, opts.maxTestTokens ?? maxTestTokensFromEnv());
   const maxSteps = Math.min(config.loop.maxSteps, MAX_STEPS);
   const enabled = resolveTools(challenge, config.tools);
   const tools = toFunctionTools(enabled);

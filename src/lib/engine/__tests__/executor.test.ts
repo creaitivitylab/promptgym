@@ -149,6 +149,20 @@ describe("runTest", () => {
     assert.equal(run.transcript.toolCalls.length, 1); // tools of the capped step are not executed
   });
 
+  it("uses the challenge's token cap when it is below the global bound", async () => {
+    const { chatFn } = scripted([{ calls: [{ name: "get_order", args: '{"order_id":"A1"}' }], tokens: 600 }]);
+    const capped = { ...challenge, maxTestTokens: 1000 };
+    const run = await runTest(capped, config(), test, opts(chatFn));
+    assert.equal(run.stopReason, "token_cap");
+    assert.equal(run.steps, 2);
+    const uncapped = await runTest({ ...challenge, maxTestTokens: 100_000 }, config({ loop: { maxSteps: 3 } }), test, {
+      ...opts(scripted([{ calls: [{ name: "get_order", args: '{"order_id":"A1"}' }], tokens: 15_000 }]).chatFn),
+      maxTestTokens: 40_000,
+    });
+    assert.equal(uncapped.stopReason, "token_cap"); // global bound wins over a higher challenge cap
+    assert.equal(uncapped.steps, 3);
+  });
+
   it("aborts with AttemptCostExceededError once the attempt ceiling is reached", async () => {
     const meter = new CostMeter(0.01);
     const { chatFn } = scripted([{ calls: [{ name: "get_order", args: '{"order_id":"A1"}' }], cost: 0.006 }]);
