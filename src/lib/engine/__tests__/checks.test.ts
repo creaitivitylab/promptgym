@@ -75,6 +75,13 @@ describe("text checks", () => {
   it("matchesRegex can be negated", () => {
     assert.equal(passes({ type: "matchesRegex", pattern: "refund", negate: true }, T("We will replace it.")), true);
   });
+  it("sentenceMatches needs all patterns in one sentence and none of the excluded ones", () => {
+    const spec: CheckSpec = { type: "sentenceMatches", all: ["\\b50\\b", "refund"], none: ["specialist"] };
+    assert.equal(passes(spec, T("Sorry! I've refunded 50 USD.")), true);
+    assert.equal(passes(spec, T("It cost 50 USD. A refund is not possible.")), false); // split across sentences
+    assert.equal(passes(spec, T("Your refund request for 50 USD went to a specialist.")), false);
+    assert.match(evaluateCheck(spec, T("Your refund request for 50 USD went to a specialist.")).detail, /excluded/);
+  });
   it("asksQuestion detects questions, not ? inside URLs", () => {
     assert.equal(passes({ type: "asksQuestion", expected: true }, T("Could you send the order number?")), true);
     assert.equal(passes({ type: "asksQuestion", expected: true }, T('Is it order "A1?"')), true);

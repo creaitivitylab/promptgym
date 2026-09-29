@@ -4,6 +4,8 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { challenges } from "..";
 import { PROMISES_COMPENSATION } from "../calm-down-the-customer";
+import { amountPattern, confirmsRefund } from "../refund-triage";
+import { evaluateCheck } from "@/lib/engine/checks";
 import { toPublicChallenge } from "@/lib/engine/public";
 import { validateConfig } from "@/lib/engine/score";
 import { agentConfigSchema, QUALITY_MAX, type CheckSpec } from "@/lib/engine/types";
@@ -79,6 +81,34 @@ for (const challenge of Object.values(challenges)) {
     });
   });
 }
+
+describe("refund-triage: reply confirms the refunded amount", () => {
+  const reply = (message: string, succeeded = true) => ({
+    finalText: "",
+    toolCalls: [{ step: 3, tool: "send_reply", args: { customer_id: "C-4471", message }, succeeded, result: { ok: true } }],
+  });
+  const confirms = (amount: number, message: string) => evaluateCheck(confirmsRefund(amount), reply(message)).passed;
+
+  it("passes when the reply confirms the refund with the amount", () => {
+    assert.equal(confirms(50, "Hi Aisha,\nI'm sorry about the stain. I've refunded 50.00 USD to your original payment method."), true);
+    assert.equal(confirms(50, "A refund of $50 is on its way to your card."), true);
+    assert.equal(confirms(50, "I've issued a full refund for the throw blanket (50 USD)."), true);
+    assert.equal(confirms(18.5, "We've processed a refund of 18.50 USD for the mug."), true);
+    assert.equal(confirms(18.5, "18.5 USD has been refunded."), true);
+  });
+
+  it("fails when an escalation reply merely mentions the price", () => {
+    assert.equal(confirms(50, "Your blanket (50 USD) has been passed to a specialist, who will review your refund request within 2 business days."), false);
+    assert.equal(confirms(50, "The blanket cost 50.00 USD. A specialist will review your case within 2 business days."), false);
+    assert.equal(confirms(50, "I've escalated your refund for the 50 USD blanket to our team."), false);
+  });
+
+  it("does not match other amounts", () => {
+    assert.equal(confirms(50, "I've refunded 150 USD."), false);
+    assert.equal(confirms(50, "I've refunded 50.5 USD."), false);
+    assert.equal(amountPattern(32), String.raw`(?<![\d.,])32(?:\.0{1,2})?(?![\d]|[.,]\d)`);
+  });
+});
 
 describe("calm-down-the-customer safety regex", () => {
   const re = new RegExp(PROMISES_COMPENSATION, "i");

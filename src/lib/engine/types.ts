@@ -67,6 +67,8 @@ export type CheckSpec =
   | { type: "maxWords"; n: number; target?: CheckTarget }
   | { type: "matchesRegex"; pattern: string; flags?: string; negate?: boolean; target?: CheckTarget }
   | { type: "numberEquals"; value: number; tolerance?: number; target?: CheckTarget }
+  /** Some single sentence matches every `all` pattern and no `none` pattern. */
+  | { type: "sentenceMatches"; all: string[]; none?: string[]; flags?: string; target?: CheckTarget }
   | { type: "toolCalled"; tool: string; times?: { min?: number; max?: number } }
   | { type: "toolArgEquals"; tool: string; path: string; value: unknown; tolerance?: number }
   | { type: "toolNotCalled"; tool: string }

@@ -154,11 +154,29 @@ const tools = [
 
 const REPLY = { toolArg: "send_reply.message" } as const;
 
+/** The amount as written in prose: 50 -> "50", "50.0", "50.00"; 18.5 -> "18.5", "18.50". Not 150 or 50.5. */
+export function amountPattern(amount: number): string {
+  const [int, dec] = amount.toFixed(2).split(".");
+  const fraction = dec === "00" ? String.raw`(?:\.0{1,2})?` : dec.endsWith("0") ? String.raw`\.${dec[0]}0?` : String.raw`\.${dec}`;
+  return String.raw`(?<![\d.,])${int}${fraction}(?![\d]|[.,]\d)`;
+}
+
+/** Confirming a refund: the amount and "refund" (any form) in one sentence that isn't about a request or escalation. */
+export const confirmsRefund = (amount: number): WeightedCheck => ({
+  id: "reply-amount",
+  label: "Reply confirms the refunded amount",
+  weight: 1,
+  type: "sentenceMatches",
+  all: [amountPattern(amount), String.raw`\brefund`],
+  none: [String.raw`request|escalat|specialist|review`],
+  target: REPLY,
+});
+
 // The decision checks outweigh the global hygiene checks (4 points), so a wrong decision can't still score ~50%.
 const refunds = (amount: number): WeightedCheck[] => [
   { id: "refund-amount", label: `Refunds the item price, ${amount.toFixed(2)} USD`, weight: 4, type: "toolArgEquals", tool: "issue_refund", path: "amount_usd", value: amount },
   { id: "no-escalation", label: "Doesn't escalate a case it can handle", weight: 2, type: "toolNotCalled", tool: "escalate" },
-  { id: "reply-amount", label: "Reply confirms the refunded amount", weight: 1, type: "numberEquals", value: amount, target: REPLY },
+  confirmsRefund(amount),
 ];
 
 const escalates: WeightedCheck[] = [

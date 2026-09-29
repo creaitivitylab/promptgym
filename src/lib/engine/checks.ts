@@ -36,6 +36,15 @@ export function evaluateCheck(spec: CheckSpec, t: Transcript, view: CallView = "
       const passed = numbers.some((x) => Math.abs(x - spec.value) <= tol);
       return { passed, detail: `expected ${spec.value}, found [${numbers.join(", ")}]` };
     }
+    case "sentenceMatches": {
+      const all = spec.all.map((p) => new RegExp(p, spec.flags ?? "i"));
+      const none = (spec.none ?? []).map((p) => new RegExp(p, spec.flags ?? "i"));
+      const sentences = splitSentences(text(spec.target));
+      const hit = sentences.find((s) => all.every((re) => re.test(s)) && !none.some((re) => re.test(s)));
+      if (hit) return { passed: true, detail: `matched sentence "${truncate(hit, 80)}"` };
+      const near = sentences.find((s) => all.every((re) => re.test(s)));
+      return { passed: false, detail: near ? `sentence excluded: "${truncate(near, 80)}"` : "no sentence matches all patterns" };
+    }
     case "toolCalled": {
       const n = callsTo(t, spec.tool, view).length;
       const min = spec.times?.min ?? 1;
