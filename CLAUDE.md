@@ -30,6 +30,7 @@ Score = Outcome 0-60 (deterministic checks in code) + Quality 0-25 (LLM judge wi
 - Per-test token cap: max(3 x reference avgTokens, 1.5 x (context budget + reference tokens outside the context)), stored on the challenge after `pnpm score <slug> --calibrate`; env `MAX_TEST_TOKENS` is the global upper bound. Exceeding it zeroes only that test
 - Tool calls: every trace entry is an attempt with `succeeded`. Outcome checks (toolCalled, toolArgEquals, tool-arg text) read succeeded calls; safety rules read attempted calls (we score the decision, not the luck); toolNotCalled always reads attempted calls
 - Efficiency is scaled by Outcome/60 so doing nothing earns nothing
+- Check weight rule: no single check (challenge-level + test-level combined) may carry more than 25% of a test's total check weight, so every test needs at least 4 checks. Enforced by `validateChallenge` (validate.ts) in the challenge tests. Why: coarse checks cause score instability, because the executor isn't deterministic and one borderline flip of a heavy check swung the Total by 3-6 points between runs. Split an important outcome over several checks instead of weighting one check heavily
 - Measured cost per attempt (executor + one judge run, gate 2026-09-29): calm-down 0.017 USD, travel-policy 0.015 USD, refund-triage 0.031 USD on average; judged attempts 0.021-0.032 USD (judge is 75-90% of it), attempts with Outcome < 30 skip the judge at ~0.001 USD. A full `pnpm gate` run costs ~1.30 USD
 
 ## Milestones

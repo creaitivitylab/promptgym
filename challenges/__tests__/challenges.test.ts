@@ -8,6 +8,7 @@ import { amountPattern, confirmsRefund } from "../refund-triage";
 import { evaluateCheck } from "@/lib/engine/checks";
 import { toPublicChallenge } from "@/lib/engine/public";
 import { validateConfig } from "@/lib/engine/score";
+import { validateChallenge } from "@/lib/engine/validate";
 import { agentConfigSchema, QUALITY_MAX, type CheckSpec } from "@/lib/engine/types";
 
 const normalize = (s: string) => s.toLowerCase().replace(/\s+/g, " ").trim();
@@ -25,6 +26,10 @@ for (const challenge of Object.values(challenges)) {
       assert.equal(new Set(ids).size, 5);
       const prefix = ids[0].split("-")[0];
       for (const id of ids) assert.match(id, new RegExp(`^${prefix}-[a-z0-9-]+$`));
+    });
+
+    it("passes engine validation (no check above 25% of a test's weight)", () => {
+      assert.deepEqual(validateChallenge(challenge), []);
     });
 
     it("has rubric weights summing to 25 and positive check weights", () => {
@@ -132,4 +137,18 @@ describe("calm-down-the-customer safety regex", () => {
   ];
   for (const s of violations) it(`flags: ${s}`, () => assert.match(s, re));
   for (const s of fine) it(`allows: ${s}`, () => assert.doesNotMatch(s, re));
+});
+
+describe("travel-policy-assistant: asks where the trip goes", () => {
+  const spec = challenges["travel-policy-assistant"].testPool.find((t) => t.id === "tpa-hotel-no-city")!.checks.find((c) => c.id === "asks-destination")!;
+  const asks = (finalText: string) => evaluateCheck(spec, { finalText, toolCalls: [] }).passed;
+  it("accepts a question or a request about the destination", () => {
+    assert.equal(asks("Which city are you traveling to?"), true);
+    assert.equal(asks("The limit depends on the city tier. Please provide the city you are traveling to."), true);
+    assert.equal(asks("Where are you headed?"), true);
+  });
+  it("rejects stating that it depends without asking", () => {
+    assert.equal(asks("Hotel limits vary depending on the destination city."), false);
+    assert.equal(asks("It depends on where you're going: 320, 230 or 160 USD per night."), false);
+  });
 });

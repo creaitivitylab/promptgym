@@ -1,5 +1,15 @@
-import type { Challenge } from "@/lib/engine/types";
+import type { Challenge, WeightedCheck } from "@/lib/engine/types";
 import { NORTHWIND_TRAVEL_POLICY } from "./sources/northwind-travel-policy";
+
+const USD: WeightedCheck = { id: "usd", label: "Gives the amount in USD", weight: 1, type: "matchesRegex", pattern: String.raw`\bUSD\b|\$|dollars?` };
+
+const NO_QUESTION: WeightedCheck = {
+  id: "no-question",
+  label: "Answers without asking back (the question has what's needed)",
+  weight: 1,
+  type: "asksQuestion",
+  expected: false,
+};
 
 const challenge: Challenge = {
   slug: "travel-policy-assistant",
@@ -32,38 +42,57 @@ const challenge: Challenge = {
   ],
   sourceDocs: [{ title: "Northwind Analytics — Travel & Expense Policy (rev. 2026.2)", body: NORTHWIND_TRAVEL_POLICY }],
   contextBudgetTokens: 1500,
+  // Every test has at least 4 checks and the answer itself is 2 of 8 weight: no single check above 25% (validate.ts).
   testPool: [
     {
       id: "tpa-tokyo-hotel",
       input: "I'm heading to Tokyo for a 3-night client workshop. What's the most I can pay per night for the hotel?",
-      checks: [{ id: "amount", label: "States the Tokyo cap of 320 USD", weight: 3, type: "numberEquals", value: 320 }],
+      checks: [
+        { id: "amount", label: "States the Tokyo cap of 320 USD", weight: 2, type: "numberEquals", value: 320 },
+        { id: "rule-tier", label: "Names the rule: Tokyo is a Tier 1 city", weight: 1, type: "matchesRegex", pattern: String.raw`tier\s*(?:1|one)\b` },
+        {
+          id: "no-conference-exception",
+          label: "Doesn't add the conference-hotel exception (it's a client workshop)",
+          weight: 1,
+          type: "matchesRegex",
+          pattern: String.raw`conference|15\s?%`,
+          negate: true,
+        },
+        USD,
+        NO_QUESTION,
+      ],
     },
     {
       id: "tpa-denver-departure-day",
       input: "I fly to Denver Monday morning and come back Wednesday evening. What's my meal allowance for Monday?",
       checks: [
-        { id: "amount", label: "Applies 75% of the Tier 3 per diem: 41.25 USD", weight: 3, type: "numberEquals", value: 41.25 },
+        { id: "amount", label: "Gives 41.25 USD (75% of the Tier 3 per diem)", weight: 2, type: "numberEquals", value: 41.25 },
+        { id: "rule-75", label: "Names the rule: 75% on the departure day", weight: 1, type: "matchesRegex", pattern: String.raw`75\s?%|75 percent|three[- ]quarters` },
+        { id: "rule-tier", label: "Names the rule: Denver is Tier 3", weight: 1, type: "matchesRegex", pattern: String.raw`tier\s*(?:3|three)\b` },
+        USD,
+        NO_QUESTION,
       ],
     },
     {
       id: "tpa-albany-mileage",
       input: "I'll drive my own car to the Albany office, 140 miles each way. How much can I claim for mileage?",
       checks: [
-        { id: "amount", label: "Calculates 280 miles x 0.64 USD = 179.20 USD", weight: 3, type: "numberEquals", value: 179.2 },
+        { id: "amount", label: "Gives 179.20 USD (280 miles x 0.64 USD)", weight: 2, type: "numberEquals", value: 179.2 },
+        { id: "rule-round-trip", label: "Names the rule: the round trip counts (280 miles)", weight: 1, type: "matchesRegex", pattern: String.raw`round[- ]trip|\b280\b|both ways` },
+        { id: "rule-rate", label: "Names the rate: 0.64 USD per mile", weight: 1, type: "numberEquals", value: 0.64 },
+        USD,
+        NO_QUESTION,
       ],
     },
     {
       id: "tpa-singapore-business",
       input: "My flight to Singapore is 13 hours nonstop. Can I book business class?",
       checks: [
-        { id: "allowed", label: "Says business class is allowed", weight: 1, type: "matchesRegex", pattern: String.raw`\byes\b|allowed|eligible|you can book|can fly business` },
-        {
-          id: "needs-approval",
-          label: "Says the manager must approve in advance",
-          weight: 2,
-          type: "matchesRegex",
-          pattern: String.raw`manager[^.]*approv|approv[^.]*manager`,
-        },
+        { id: "allowed", label: "Says business class is allowed", weight: 2, type: "matchesRegex", pattern: String.raw`\byes\b|allowed|eligible|you can book|can fly business` },
+        { id: "needs-approval", label: "Says the manager must approve", weight: 2, type: "matchesRegex", pattern: String.raw`manager[^.]*approv|approv[^.]*manager` },
+        { id: "in-advance", label: "Says approval comes before booking", weight: 1, type: "matchesRegex", pattern: String.raw`advance|before (?:you )?book|beforehand|prior|first` },
+        { id: "rule-10h", label: "Names the rule: flights over 10 hours", weight: 1, type: "matchesRegex", pattern: String.raw`(?:over|more than|longer than|above|exceeds?)\s+10\s*(?:hours|h)\b|10\+\s*hours` },
+        NO_QUESTION,
       ],
       safetyRules: [
         {
@@ -80,13 +109,43 @@ const challenge: Challenge = {
       id: "tpa-hotel-no-city",
       input: "What's my hotel limit for my trip next week?",
       checks: [
-        { id: "asks", label: "Asks a question instead of guessing", weight: 2, type: "asksQuestion", expected: true },
-        { id: "asks-city", label: "Asks where the trip goes", weight: 1, type: "matchesRegex", pattern: String.raw`\b(?:city|where|destination|location)\b` },
+        {
+          id: "asks-destination",
+          label: "Asks where the trip goes",
+          weight: 2,
+          type: "sentenceMatches",
+          // A question or a request ("Please tell me the city") in the same sentence as the destination.
+          all: [
+            String.raw`\?|\b(?:please|could you|can you|would you|let me know|tell me|share|provide|which|what)\b`,
+            String.raw`\b(?:city|where|destination|location|travel(?:l)?ing to|going to|headed)\b`,
+          ],
+        },
+        { id: "depends-on-city", label: "Explains that the limit depends on the city", weight: 1, type: "matchesRegex", pattern: String.raw`depend|vary|varies|based on|tier` },
+        { id: "one-question", label: "Asks one question, not several", weight: 1, type: "matchesRegex", pattern: String.raw`\?[^?]*\?`, negate: true },
+        { id: "short-clarification", label: "Keeps the clarifying reply short", weight: 1, type: "maxWords", n: 40 },
+        {
+          id: "no-guess",
+          label: "Doesn't state a single limit as the answer",
+          weight: 1,
+          type: "matchesRegex",
+          pattern: String.raw`(?:your|the) (?:hotel )?(?:limit|cap) (?:is|will be) (?:\$|usd )?\d`,
+          negate: true,
+        },
       ],
     },
   ],
   tools: [],
-  checks: [{ id: "max-words", label: "Under 80 words", weight: 1, type: "maxWords", n: 80 }],
+  checks: [
+    { id: "max-words", label: "Under 80 words", weight: 1, type: "maxWords", n: 80 },
+    {
+      id: "no-deflect",
+      label: "Answers from the policy instead of sending the employee elsewhere",
+      weight: 1,
+      type: "matchesRegex",
+      pattern: String.raw`check (?:with )?(?:your|the) (?:company'?s? )?(?:travel )?(?:policy|finance|hr)|consult (?:your|the)|I (?:don't|do not) have (?:access|information|details)|varies by company`,
+      negate: true,
+    },
+  ],
   rubric: [
     {
       id: "direct",
@@ -113,10 +172,11 @@ const challenge: Challenge = {
     config: {
       instructions: `You answer Northwind Analytics employees' travel and expense questions, using only the policy in the context.
 
-- Start with the answer: the exact USD amount or yes/no. Show the math in one short clause when you calculate something.
+- Start with the answer: the exact amount in USD, or yes/no. Show the math in one short clause when you calculate something.
+- Name the rule you applied (for example "Tokyo is Tier 1", "75% on your departure day", "280 miles round trip", "flights over 10 hours").
 - Apply every rule that changes the number for the situation (city tier, departure/return day, round trip).
-- Mention a required approval or condition only when it applies to the question.
-- If you need information the question doesn't give (for example the destination city), ask one short question instead of guessing.
+- Mention a required approval or condition only when it applies to the question; leave out exceptions that don't apply.
+- If you need information the question doesn't give (for example the destination city), say the answer depends on it and ask one short question instead of guessing. Otherwise don't end with a question.
 - Never say an approval can be skipped.
 - Under 80 words.`,
       context: `NORTHWIND TRAVEL POLICY (all amounts USD)
