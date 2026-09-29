@@ -48,35 +48,43 @@ export function executeToolCall<F extends Fixtures>(
   ctx: ToolContext<F>,
   step: number,
 ): ToolCallRecord {
-  const def = enabled.find((t) => t.name === call.name);
-  if (!def) {
-    return { step, tool: call.name, args: call.arguments, error: `Tool "${call.name}" is not available.` };
-  }
-
   let raw: unknown;
+  let validJson = true;
   try {
     raw = call.arguments.trim() === "" ? {} : JSON.parse(call.arguments);
   } catch {
-    return { step, tool: def.name, args: call.arguments, error: "Arguments are not valid JSON." };
+    raw = call.arguments;
+    validJson = false;
   }
+  const failed = (error: string, args: unknown = raw): ToolCallRecord => ({
+    step,
+    tool: call.name,
+    args,
+    succeeded: false,
+    error,
+  });
+
+  const def = enabled.find((t) => t.name === call.name);
+  if (!def) return failed(`Tool "${call.name}" is not available.`);
+  if (!validJson) return failed("Arguments are not valid JSON.");
 
   const parsed = def.args.safeParse(raw);
   if (!parsed.success) {
     const issues = parsed.error.issues.map((i) => `${i.path.join(".") || "(root)"}: ${i.message}`).join("; ");
-    return { step, tool: def.name, args: raw, error: `Invalid arguments: ${issues}` };
+    return failed(`Invalid arguments: ${issues}`);
   }
 
   try {
-    return { step, tool: def.name, args: parsed.data, result: def.handler(parsed.data, ctx) };
+    return { step, tool: def.name, args: parsed.data, succeeded: true, result: def.handler(parsed.data, ctx) };
   } catch (err) {
-    if (err instanceof ToolError) return { step, tool: def.name, args: parsed.data, error: err.message };
+    if (err instanceof ToolError) return failed(err.message, parsed.data);
     throw err;
   }
 }
 
 /** Content of the tool message sent back to the model. */
 export function toolResultContent(record: ToolCallRecord): string {
-  return JSON.stringify(record.error !== undefined ? { error: record.error } : (record.result ?? { ok: true }));
+  return JSON.stringify(record.succeeded ? (record.result ?? { ok: true }) : { error: record.error });
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {

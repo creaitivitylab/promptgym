@@ -6,7 +6,8 @@
     "dev": "next dev -p 3010",
     "build": "next build",
     "start": "next start -p 3010",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test": "tsx --test 'src/**/__tests__/*.test.ts'"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",

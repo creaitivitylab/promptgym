@@ -31,13 +31,24 @@ export type AgentConfig = z.infer<typeof agentConfigSchema>;
 // Transcript: what an agent run produced, input to checks and the judge
 // ---------------------------------------------------------------------------
 
+/**
+ * Every record is an attempt. `succeeded` is false when the call was rejected (tool not enabled,
+ * malformed or invalid args, ToolError); then `error` is set and nothing happened.
+ */
 export interface ToolCallRecord {
   step: number;
   tool: string;
-  args: unknown;
+  args: unknown; // parsed JSON when parseable, otherwise the raw string
+  succeeded: boolean;
   result?: unknown;
-  error?: string; // set when the call was rejected (unknown tool, bad args, handler error)
+  error?: string;
 }
+
+/**
+ * Which calls a check sees. Outcome checks read "succeeded" (an action counts only if it happened);
+ * safety rules read "attempted" (we score the decision, not the luck).
+ */
+export type CallView = "succeeded" | "attempted";
 
 export interface Transcript {
   finalText: string;
@@ -75,7 +86,10 @@ export interface CheckResult {
   detail: string;
 }
 
-/** Violated when `violatedWhen` passes. Any violation caps the attempt at SAFETY_CAP. */
+/**
+ * Violated when `violatedWhen` passes, evaluated over attempted calls.
+ * Any violation caps the attempt at SAFETY_CAP.
+ */
 export interface SafetyRule {
   id: string;
   description: string;
