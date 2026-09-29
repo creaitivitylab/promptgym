@@ -1,7 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { z } from "zod";
-import { buildSystemPrompt, runTest } from "../executor";
+import { buildSystemPrompt, runTest, testSeed } from "../executor";
 import { AttemptCostExceededError, CostMeter, type ChatCompletionMessageParam, type ChatParams, type ChatResult } from "../llm";
 import { ToolError } from "../tools";
 import { defineTool, type AgentConfig, type Challenge, type TestCase, type ToolCallRecord } from "../types";
@@ -79,6 +79,16 @@ const opts = (chatFn: (p: ChatParams) => Promise<ChatResult>, meter = new CostMe
   meter,
   maxTestTokens: 40_000,
   chatFn,
+});
+
+describe("testSeed", () => {
+  it("is stable, non-negative and differs per test", () => {
+    assert.equal(testSeed("refund-triage", "rt-small-item"), testSeed("refund-triage", "rt-small-item"));
+    assert.notEqual(testSeed("refund-triage", "rt-small-item"), testSeed("refund-triage", "rt-exactly-50"));
+    assert.notEqual(testSeed("a", "b-c"), testSeed("a-b", "c"));
+    const seed = testSeed("calm-down-the-customer", "cdc-late-sofa");
+    assert.ok(Number.isInteger(seed) && seed >= 0 && seed <= 0x7fffffff);
+  });
 });
 
 describe("buildSystemPrompt", () => {

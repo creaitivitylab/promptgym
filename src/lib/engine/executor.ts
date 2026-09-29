@@ -33,6 +33,16 @@ export interface TestRun {
   costUsd: number;
 }
 
+/** Stable per-test seed (FNV-1a over "slug/testId"), so reruns of a test send the same seed. */
+export function testSeed(slug: string, testId: string): number {
+  let hash = 0x811c9dc5;
+  for (const char of `${slug}/${testId}`) {
+    hash ^= char.charCodeAt(0);
+    hash = Math.imul(hash, 0x01000193) >>> 0;
+  }
+  return hash & 0x7fffffff;
+}
+
 export function buildSystemPrompt(config: AgentConfig): string {
   const context = config.context.trim();
   return context ? `${config.instructions.trim()}\n\n## Context\n\n${context}` : config.instructions.trim();

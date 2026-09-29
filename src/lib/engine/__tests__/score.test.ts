@@ -1,6 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { z } from "zod";
+import { testSeed } from "../executor";
 import { CostMeter, type ChatParams, type ChatResult } from "../llm";
 import { ConfigError, scoreAttempt, validateConfig } from "../score";
 import { defineTool, type AgentConfig, type Challenge } from "../types";
@@ -85,6 +86,18 @@ describe("scoreAttempt", () => {
     assert.equal(res.total, 100);
     assert.equal(res.capped, false);
     assert.equal(res.cost.totalUsd, 0.004);
+  });
+
+  it("sends each test its own stable seed", async () => {
+    const seeds: Record<string, number | undefined> = {};
+    const { chatFn } = fake({ answers: { Q1: { text: "yes" }, Q2: { text: "no" } } });
+    const spy = async (params: ChatParams) => {
+      if (!params.responseFormat) seeds[String(params.messages[1].content)] = params.seed;
+      return chatFn(params);
+    };
+    await scoreAttempt(makeChallenge(), config, opts(spy));
+    assert.equal(seeds.Q1, testSeed("demo", "t-yes"));
+    assert.equal(seeds.Q2, testSeed("demo", "t-no"));
   });
 
   it("averages weighted check fractions across tests", async () => {

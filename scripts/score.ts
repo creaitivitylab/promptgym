@@ -1,6 +1,7 @@
 import { parseArgs } from "node:util";
 import { getChallenge } from "../challenges";
 import { AttemptCostExceededError, CostMeter, envModel } from "@/lib/engine/llm";
+import { tokenCap } from "@/lib/engine/calibration";
 import { ConfigError, scoreAttempt } from "@/lib/engine/score";
 import { loadConfig, logAttempt, parseReasoning, printAttempt } from "./lib/cli";
 
@@ -44,7 +45,6 @@ async function main() {
     judgeReasoning: parseReasoning(values["judge-reasoning"]),
     judgeRuns,
     meter,
-    seed: 42,
   });
   logAttempt(result, config, values.calibrate ? "calibrate" : ref);
 
@@ -65,7 +65,7 @@ async function main() {
     const avgSteps = Math.round(result.avgSteps * 10) / 10;
     console.log(`\nCalibration for challenges/${challenge.slug}.ts:`);
     console.log(`  reference: { ..., avgTokens: ${avgTokens}, avgSteps: ${avgSteps} },`);
-    console.log(`  maxTestTokens: ${avgTokens * 3},`);
+    console.log(`  maxTestTokens: ${tokenCap(challenge, result.avgTokens, result.avgSteps)},`);
   }
 }
 

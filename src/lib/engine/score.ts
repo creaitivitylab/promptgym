@@ -1,7 +1,7 @@
 import "server-only";
 import { evaluateChecks, findSafetyViolations, passFraction, type SafetyViolation } from "./checks";
 import { efficiencyScore, type EfficiencyResult } from "./efficiency";
-import { runTest, type TestRun } from "./executor";
+import { runTest, testSeed, type TestRun } from "./executor";
 import { judgeTest, type JudgeReasoning, type JudgeResult } from "./judge";
 import type { ChatParams, ChatResult, CostMeter } from "./llm";
 import { countTokens } from "./tokens";
@@ -26,7 +26,6 @@ export interface ScoreOptions {
   /** >1 re-judges the same transcripts to measure judge spread; quality is the mean. */
   judgeRuns?: number;
   meter: CostMeter;
-  seed?: number;
   maxTestTokens?: number;
   chatFn?: (params: ChatParams) => Promise<ChatResult>; // injectable for tests
 }
@@ -100,7 +99,7 @@ export async function scoreAttempt<F extends Fixtures>(
       runTest(challenge, config, test, {
         model: opts.executorModel,
         meter: opts.meter,
-        seed: opts.seed,
+        seed: testSeed(challenge.slug, test.id),
         maxTestTokens: opts.maxTestTokens,
         chatFn: opts.chatFn,
       }),

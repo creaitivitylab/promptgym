@@ -47,7 +47,6 @@ async function main() {
           judgeReasoning,
           judgeRuns: JUDGE_RUNS,
           meter: new CostMeter(new CostMeter().ceilingUsd * JUDGE_RUNS),
-          seed: 42,
         });
         logAttempt(result, config, `gate:${c.name}`);
         return result;
