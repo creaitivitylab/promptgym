@@ -10,7 +10,7 @@ const USAGE = `Usage: pnpm score <slug> <config.json|@reference|@decent|@lazy> [
 Options:
   --executor <model>          executor model (default: env EXECUTOR_MODEL)
   --judge-runs <n>            judge the same transcripts n times and report spread (default 1)
-  --judge-reasoning <effort>  minimal | low | medium (default: env JUDGE_REASONING or minimal)
+  --judge-reasoning <effort>  minimal | low | medium (default: env JUDGE_REASONING or low)
   --calibrate                 run the reference config and print avgTokens, avgSteps, maxTestTokens
   --json                      print the full result as JSON`;
 

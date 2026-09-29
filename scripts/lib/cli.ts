@@ -17,7 +17,7 @@ export function loadConfig(challenge: Challenge, ref: string): AgentConfig {
 }
 
 export function parseReasoning(value: string | undefined): JudgeReasoning {
-  const effort = value ?? process.env.JUDGE_REASONING ?? "minimal";
+  const effort = value ?? process.env.JUDGE_REASONING ?? "low";
   if (!(JUDGE_REASONING_EFFORTS as readonly string[]).includes(effort)) {
     throw new Error(`Judge reasoning must be one of ${JUDGE_REASONING_EFFORTS.join(", ")}, got "${effort}"`);
   }
