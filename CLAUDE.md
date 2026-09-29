@@ -24,6 +24,7 @@ Score = Outcome 0-60 (deterministic checks in code) + Quality 0-25 (LLM judge wi
 
 ## Engine decisions (M1)
 - Executor seed per test: FNV-1a over "slug/testId" (`testSeed` in executor.ts). OpenAI's seed is best effort (3-5 distinct outputs in 5 runs at temperature 0), so `pnpm gate` runs each config 5 times: band on the mean Total, SD of Total <= 3, range > 8 warns
+- Re-run the full `pnpm gate` after any change to EXECUTOR_MODEL, JUDGE_MODEL, judge reasoning, check logic or scoring formulas. Decent configs should sit near the middle of their band (50-75), not at the edges; give them clear, deterministic flaws far from any check boundary (e.g. a missing policy section), not borderline ones
 - Network: up to 2 retries (500/1500 ms) on connection resets, 5xx and interrupted bodies. An interrupted body is logged `cost_unknown: true` with its generation id and a worst-case token estimate that counts against the ceiling
 - Judge: Sonnet 5.5 cannot disable reasoning (HTTP 400); default effort `low` (same cost as `minimal`, half the spread). Strict JSON schema, 0-4 per criterion, reason before score
 - Cost accounting: real cost = `usage.cost`, plus `cost_details.upstream_inference_cost` only when `is_byok` (for non-BYOK it repeats `cost`). Missing numbers throw, never record 0. `MAX_ATTEMPT_COST_USD` (default 0.25) aborts an attempt
