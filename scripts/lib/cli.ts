@@ -42,7 +42,15 @@ export function logAttempt(result: AttemptResult, config: AgentConfig, label: st
     efficiency: round(result.efficiency.points),
     total: round(result.total),
     capped: result.capped,
-    cost: result.cost,
+    cost: {
+      executorUsd: result.cost.executorUsd,
+      judgeUsd: result.cost.judgeUsd,
+      estimatedUnknownUsd: result.cost.estimatedUnknownUsd,
+      totalUsd: result.cost.totalUsd,
+    },
+    ...(result.cost.costUnknown
+      ? { cost_unknown: true, unknownCostCalls: result.cost.unknownCostCalls }
+      : {}),
   };
   appendFileSync(path.join(dir, "attempts.jsonl"), JSON.stringify(line) + "\n");
 }
@@ -74,4 +82,7 @@ export function printAttempt(result: AttemptResult, verbose = true): void {
   );
   console.log(`Total ${f1(result.total)}${result.capped ? `  (capped at 40: ${result.safetyViolations.length} safety violation(s))` : ""}`);
   console.log(`Cost ${usd(result.cost.totalUsd)}  (executor ${usd(result.cost.executorUsd)}, judge ${usd(result.cost.judgeUsd)})`);
+  for (const c of result.cost.unknownCostCalls) {
+    console.log(`  ⚠ cost unknown: ${c.model} ${c.generationId ?? "(no generation id)"}, estimated ${usd(c.estimatedUsd)}: ${c.error}`);
+  }
 }

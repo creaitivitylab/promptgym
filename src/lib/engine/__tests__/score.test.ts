@@ -100,6 +100,22 @@ describe("scoreAttempt", () => {
     assert.equal(seeds.Q2, testSeed("demo", "t-no"));
   });
 
+  it("reports unknown-cost calls and includes their estimate in the total", async () => {
+    const { chatFn } = fake({ answers: { Q1: { text: "yes" }, Q2: { text: "no" } } });
+    let first = true;
+    const flaky = async (params: ChatParams) => {
+      if (first) {
+        first = false;
+        params.meter.addUnknown({ model: "exec", generationId: "gen-x", estimatedUsd: 0.01, error: "interrupted" });
+      }
+      return chatFn(params);
+    };
+    const res = await scoreAttempt(makeChallenge(), config, opts(flaky));
+    assert.equal(res.cost.costUnknown, true);
+    assert.deepEqual(res.cost.unknownCostCalls.map((c) => c.generationId), ["gen-x"]);
+    assert.ok(Math.abs(res.cost.totalUsd - (0.004 + 0.01)) < 1e-12);
+  });
+
   it("averages weighted check fractions across tests", async () => {
     // t-yes passes 2/2, t-no passes 1/2 (short, but no "no") -> (1 + 0.5) / 2 * 60 = 45
     const { chatFn } = fake({ answers: { Q1: { text: "yes" }, Q2: { text: "maybe" } } });

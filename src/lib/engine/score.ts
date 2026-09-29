@@ -3,7 +3,7 @@ import { evaluateChecks, findSafetyViolations, passFraction, type SafetyViolatio
 import { efficiencyScore, type EfficiencyResult } from "./efficiency";
 import { runTest, testSeed, type TestRun } from "./executor";
 import { judgeTest, type JudgeReasoning, type JudgeResult } from "./judge";
-import type { ChatParams, ChatResult, CostMeter } from "./llm";
+import type { ChatParams, ChatResult, CostMeter, UnknownCostCall } from "./llm";
 import { countTokens } from "./tokens";
 import { resolveTools } from "./tools";
 import {
@@ -64,7 +64,15 @@ export interface AttemptResult {
   avgTokens: number;
   avgSteps: number;
   judgeSpread: CriterionSpread[] | null; // when judgeRuns > 1 and the judge ran
-  cost: { executorUsd: number; judgeUsd: number; totalUsd: number };
+  cost: {
+    executorUsd: number;
+    judgeUsd: number;
+    /** Token-based estimates for calls whose response died mid-way (see UnknownCostCall). */
+    estimatedUnknownUsd: number;
+    unknownCostCalls: UnknownCostCall[];
+    costUnknown: boolean;
+    totalUsd: number; // includes the estimates
+  };
 }
 
 export function validateConfig<F extends Fixtures>(challenge: Challenge<F>, config: AgentConfig): void {
@@ -172,7 +180,14 @@ export async function scoreAttempt<F extends Fixtures>(
     avgTokens,
     avgSteps,
     judgeSpread: judgeRuns > 1 && !judgeSkipped ? judgeSpread(challenge, results, judgeRuns) : null,
-    cost: { executorUsd, judgeUsd, totalUsd: executorUsd + judgeUsd },
+    cost: {
+      executorUsd,
+      judgeUsd,
+      estimatedUnknownUsd: opts.meter.estimatedUnknownUsd,
+      unknownCostCalls: [...opts.meter.unknownCostCalls],
+      costUnknown: opts.meter.unknownCostCalls.length > 0,
+      totalUsd: executorUsd + judgeUsd + opts.meter.estimatedUnknownUsd,
+    },
   };
 }
 
