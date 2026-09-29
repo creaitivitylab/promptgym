@@ -11,10 +11,12 @@
   "dependencies": {
     "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.117.2",
+    "js-tiktoken": "^1.0.21",
     "next": "14.2.35",
     "openai": "^7.23.0",
     "react": "^18",
     "react-dom": "^18",
+    "server-only": "^0.0.1",
     "zod": "^4.6.5"
   },
   "devDependencies": {
