@@ -23,7 +23,8 @@ Score = Outcome 0-60 (deterministic checks in code) + Quality 0-25 (LLM judge wi
 - Log real cost per attempt (for usage_daily later)
 
 ## Engine decisions (M1)
-- Executor seed per test: FNV-1a over "slug/testId" (`testSeed` in executor.ts). OpenAI's seed is best effort, so the gate also requires stability over 5 runs
+- Executor seed per test: FNV-1a over "slug/testId" (`testSeed` in executor.ts). OpenAI's seed is best effort (3-5 distinct outputs in 5 runs at temperature 0), so `pnpm gate` runs each config 5 times: band on the mean Total, SD of Total <= 3, range > 8 warns
+- Network: up to 2 retries (500/1500 ms) on connection resets, 5xx and interrupted bodies. An interrupted body is logged `cost_unknown: true` with its generation id and a worst-case token estimate that counts against the ceiling
 - Judge: Sonnet 5.5 cannot disable reasoning (HTTP 400); default effort `low` (same cost as `minimal`, half the spread). Strict JSON schema, 0-4 per criterion, reason before score
 - Cost accounting: real cost = `usage.cost`, plus `cost_details.upstream_inference_cost` only when `is_byok` (for non-BYOK it repeats `cost`). Missing numbers throw, never record 0. `MAX_ATTEMPT_COST_USD` (default 0.25) aborts an attempt
 - Per-test token cap: max(3 x reference avgTokens, 1.5 x (context budget + reference tokens outside the context)), stored on the challenge after `pnpm score <slug> --calibrate`; env `MAX_TEST_TOKENS` is the global upper bound. Exceeding it zeroes only that test
@@ -45,6 +46,9 @@ Score = Outcome 0-60 (deterministic checks in code) + Quality 0-25 (LLM judge wi
 - Challenges: calm-down-the-customer (Prompt layer), travel-policy-assistant (Context layer, 1500-token context budget), refund-triage (Delegation layer, tools get_order, get_customer_history, issue_refund, escalate, send_reply)
 - CLI: pnpm score <slug> <config.json> prints per-test results, score breakdown and cost in USD
 - Gate: reference config >= 85, lazy config ("do your best") <= 40, judge variance <= 1 point per criterion over 3 runs
+
+## M2 scope
+- Result cache: identical config hash + challenge version + executor model returns the stored attempt result instead of re-running. Players must not be able to re-roll the same config for a better score.
 
 ## Do not
 - Touch /var/www/flowguard or /var/www/_archive, or any FlowGuard PM2 process; never use ports 3000/3001

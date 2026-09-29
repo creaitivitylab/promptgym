@@ -7,8 +7,9 @@ import { scoreAttempt, type AttemptResult } from "@/lib/engine/score";
 import type { AgentConfig, Challenge } from "@/lib/engine/types";
 import { f1, loadConfig, logAttempt, parseReasoning, ROOT, usd } from "./lib/cli";
 
-const RUNS = 5; // stability: every run must pass, and max - min of Total <= MAX_TOTAL_RANGE
-const MAX_TOTAL_RANGE = 3;
+const RUNS = 5; // band is checked on the mean Total of the runs
+const MAX_TOTAL_SD = 3; // stability: sample standard deviation of Total
+const WARN_TOTAL_RANGE = 8; // max - min above this prints a warning, doesn't fail
 const JUDGE_RUNS = 3; // run 1 is judged JUDGE_RUNS times to measure judge spread; runs 2..RUNS once
 const MAX_SPREAD = 1;
 const CONFIGS = [
@@ -43,7 +44,7 @@ async function main() {
 
   console.log(
     `# Gate · executor ${opts.executorModel} · judge ${opts.judgeModel} (reasoning ${opts.judgeReasoning})\n` +
-      `${RUNS} runs per config (run 1 judged ${JUDGE_RUNS}x for spread) · pass = every run in band, Total range <= ${MAX_TOTAL_RANGE}, judge spread <= ${MAX_SPREAD}\n`,
+      `${RUNS} runs per config (run 1 judged ${JUDGE_RUNS}x for spread) · pass = mean Total in band, SD of Total <= ${MAX_TOTAL_SD}, judge spread <= ${MAX_SPREAD} · range > ${WARN_TOTAL_RANGE} warns\n`,
   );
   const summary: Record<string, unknown>[] = [];
   let allPassed = true;
@@ -94,36 +95,47 @@ async function runConfig(challenge: Challenge, config: AgentConfig, name: string
 
 const uncapped = (r: AttemptResult) => r.outcome + r.quality + r.efficiency.points;
 const mean = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length;
+/** Sample standard deviation (n - 1). */
+const sd = (xs: number[]) => {
+  const m = mean(xs);
+  return Math.sqrt(xs.reduce((a, x) => a + (x - m) ** 2, 0) / (xs.length - 1));
+};
 /** Normal attempt cost: executor plus one judge run. */
 const attemptCost = (r: AttemptResult) => {
   const judgeRuns = r.tests.find((t) => t.judgeRuns.length)?.judgeRuns.length || 1;
-  return r.cost.executorUsd + r.cost.judgeUsd / judgeRuns;
+  return r.cost.executorUsd + r.cost.judgeUsd / judgeRuns + r.cost.estimatedUnknownUsd;
 };
 
 function printChallenge(challenge: Challenge, runsPerConfig: AttemptResult[][]): boolean {
   console.log(`## ${challenge.slug} (v${challenge.version})\n`);
-  console.log(`| config | Outcome /60 | Quality /25 | Efficiency /15 | Total (mean) | Total range | Gate | Stable | Cost / attempt |`);
-  console.log(`|---|---:|---:|---:|---:|---:|---|---|---:|`);
+  console.log(`| config | Outcome /60 | Quality /25 | Efficiency /15 | Total (mean) | SD | Range | Gate | Stable | Cost / attempt |`);
+  console.log(`|---|---:|---:|---:|---:|---:|---:|---|---|---:|`);
   let passed = true;
   const notes: string[] = [];
 
   runsPerConfig.forEach((runs, i) => {
     const c = CONFIGS[i];
     const totals = runs.map((r) => r.total);
+    const meanTotal = mean(totals);
+    const deviation = sd(totals);
     const range = Math.max(...totals) - Math.min(...totals);
-    const inBand = runs.every((r) => c.gate(r.total));
-    const viaCap = runs.some((r) => r.capped && c.gate(r.total) && !c.gate(uncapped(r)));
-    const stable = range <= MAX_TOTAL_RANGE;
+    const inBand = c.gate(meanTotal);
+    const viaCap = runs.some((r) => r.capped) && inBand && !c.gate(mean(runs.map(uncapped)));
+    const stable = deviation <= MAX_TOTAL_SD;
     passed &&= inBand && stable;
 
     const quality = runs.every((r) => r.judgeSkipped) ? "skipped" : f1(mean(runs.map((r) => r.quality)));
     const gate = `${c.rule} ${inBand ? "✅" : "❌"}${viaCap ? " **passes via safety cap**" : ""}`;
     console.log(
       `| ${c.name} | ${f1(mean(runs.map((r) => r.outcome)))} | ${quality} | ${f1(mean(runs.map((r) => r.efficiency.points)))} | ` +
-        `**${f1(mean(totals))}** | ${f1(Math.min(...totals))}-${f1(Math.max(...totals))} (Δ${f1(range)}) | ${gate} | ${stable ? "✅" : "❌"} | ${usd(mean(runs.map(attemptCost)))} |`,
+        `**${f1(meanTotal)}** | ${deviation.toFixed(2)} | ${f1(Math.min(...totals))}-${f1(Math.max(...totals))} (Δ${f1(range)})${range > WARN_TOTAL_RANGE ? " ⚠️" : ""} | ` +
+        `${gate} | ${stable ? "✅" : "❌"} | ${usd(mean(runs.map(attemptCost)))} |`,
     );
     const perRun = runs.map((r) => (r.capped ? `${f1(r.total)} (capped, ${f1(uncapped(r))} uncapped)` : f1(r.total)));
     notes.push(`- ${c.name} totals: ${perRun.join(", ")}`);
+    if (range > WARN_TOTAL_RANGE) notes.push(`  ⚠️ warning: ${c.name} Total range ${f1(range)} > ${WARN_TOTAL_RANGE} (not a failure)`);
+    const unknown = runs.flatMap((r) => r.cost.unknownCostCalls);
+    if (unknown.length) notes.push(`  ⚠️ ${c.name}: ${unknown.length} call(s) with unknown cost, estimated ${usd(unknown.reduce((a, u) => a + u.estimatedUsd, 0))}`);
   });
   console.log(`\n${notes.join("\n")}`);
 
