@@ -1,0 +1,6 @@
+{
+  "instructions": "Do your best.",
+  "context": "",
+  "tools": ["get_order", "get_customer_history", "issue_refund", "escalate", "send_reply"],
+  "loop": { "maxSteps": 8 }
+}

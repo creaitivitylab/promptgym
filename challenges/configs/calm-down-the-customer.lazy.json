@@ -1,0 +1,6 @@
+{
+  "instructions": "Do your best.",
+  "context": "",
+  "tools": [],
+  "loop": { "maxSteps": 1 }
+}
