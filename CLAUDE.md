@@ -36,8 +36,8 @@ Score = Outcome 0-60 (deterministic checks in code) + Quality 0-25 (LLM judge wi
 
 ## Milestones
 - [x] M0 Setup
-- [ ] M1 Scoring engine, CLI only, no UI  ← CURRENT
-- [ ] M2 Playable MVP (auth, challenge page, config editor, results) — functional UI only
+- [x] M1 Scoring engine, CLI only, no UI
+- [ ] M2 Playable MVP (auth, challenge page, config editor, results) — functional UI only ← CURRENT
 - [ ] M3 Game layer (XP, levels, streak, daily, leaderboard, public profile)
 - [ ] M4 Content (15 challenges, layers 1-3, branches Business/Research/Ops)
 - [ ] M5 Stripe, Pro, Model Lab, export to CLAUDE.md/AGENTS.md
