@@ -94,13 +94,18 @@ export interface ToolContext<F extends Fixtures = Fixtures> {
   trace: readonly ToolCallRecord[];
 }
 
-export interface ToolDef<F extends Fixtures = Fixtures> {
+export interface ToolDef<F extends Fixtures = Fixtures, S extends z.ZodObject = z.ZodObject> {
   name: string;
   description: string;
-  args: z.ZodObject<z.ZodRawShape>;
+  args: S;
   kind: "read" | "action";
   /** Pure and deterministic. Throw ToolError for an error the agent should see. */
-  handler: (args: any, ctx: ToolContext<F>) => unknown;
+  handler(args: z.infer<S>, ctx: ToolContext<F>): unknown;
+}
+
+/** Identity helper so a tool's handler gets typed args from its schema. */
+export function defineTool<F extends Fixtures, S extends z.ZodObject>(def: ToolDef<F, S>): ToolDef<F> {
+  return def as ToolDef<F>;
 }
 
 // ---------------------------------------------------------------------------

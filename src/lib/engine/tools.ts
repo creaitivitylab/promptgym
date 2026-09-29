@@ -10,9 +10,10 @@ export interface FunctionTool {
   function: { name: string; description: string; parameters: Record<string, unknown> };
 }
 
-export function toFunctionTools(defs: ToolDef<any>[]): FunctionTool[] {
+export function toFunctionTools<F extends Fixtures>(defs: ToolDef<F>[]): FunctionTool[] {
   return defs.map((def) => {
-    const { $schema: _, ...parameters } = z.toJSONSchema(def.args) as Record<string, unknown>;
+    const parameters = z.toJSONSchema(def.args) as Record<string, unknown>;
+    delete parameters.$schema;
     return { type: "function", function: { name: def.name, description: def.description, parameters } };
   });
 }
