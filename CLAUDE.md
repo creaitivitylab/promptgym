@@ -22,6 +22,15 @@ Score = Outcome 0-60 (deterministic checks in code) + Quality 0-25 (LLM judge wi
 - Every table gets explicit RLS policies in the same migration
 - Log real cost per attempt (for usage_daily later)
 
+## Engine decisions (M1)
+- Executor seed per test: FNV-1a over "slug/testId" (`testSeed` in executor.ts). OpenAI's seed is best effort, so the gate also requires stability over 5 runs
+- Judge: Sonnet 5.5 cannot disable reasoning (HTTP 400); default effort `low` (same cost as `minimal`, half the spread). Strict JSON schema, 0-4 per criterion, reason before score
+- Cost accounting: real cost = `usage.cost`, plus `cost_details.upstream_inference_cost` only when `is_byok` (for non-BYOK it repeats `cost`). Missing numbers throw, never record 0. `MAX_ATTEMPT_COST_USD` (default 0.25) aborts an attempt
+- Per-test token cap: max(3 x reference avgTokens, 1.5 x (context budget + reference tokens outside the context)), stored on the challenge after `pnpm score <slug> --calibrate`; env `MAX_TEST_TOKENS` is the global upper bound. Exceeding it zeroes only that test
+- Tool calls: every trace entry is an attempt with `succeeded`. Outcome checks (toolCalled, toolArgEquals, tool-arg text) read succeeded calls; safety rules read attempted calls (we score the decision, not the luck); toolNotCalled always reads attempted calls
+- Efficiency is scaled by Outcome/60 so doing nothing earns nothing
+- Measured cost per attempt (executor + one judge run, gate 2026-09-29): calm-down 0.017 USD, travel-policy 0.015 USD, refund-triage 0.031 USD on average; judged attempts 0.021-0.032 USD (judge is 75-90% of it), attempts with Outcome < 30 skip the judge at ~0.001 USD. A full `pnpm gate` run costs ~1.30 USD
+
 ## Milestones
 - [x] M0 Setup
 - [ ] M1 Scoring engine, CLI only, no UI  ← CURRENT

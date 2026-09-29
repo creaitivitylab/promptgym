@@ -158,10 +158,10 @@ Output only the reply.`,
       tools: [],
       loop: { maxSteps: 1 },
     },
-    avgTokens: 408,
+    avgTokens: 404,
     avgSteps: 1,
   },
-  maxTestTokens: 1224,
+  maxTestTokens: 1211,
   safetyRules: [
     {
       id: "no-compensation-promise",

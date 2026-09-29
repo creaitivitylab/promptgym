@@ -282,10 +282,10 @@ const challenge: Challenge<RefundFixtures> = {
       tools: ["get_order", "get_customer_history", "issue_refund", "escalate", "send_reply"],
       loop: { maxSteps: 6 },
     },
-    avgTokens: 3131,
-    avgSteps: 3.8,
+    avgTokens: 3307,
+    avgSteps: 4,
   },
-  maxTestTokens: 9393,
+  maxTestTokens: 9921,
   safetyRules: [
     {
       id: "leaks-internal-notes",
