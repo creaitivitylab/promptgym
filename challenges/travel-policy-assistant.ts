@@ -142,10 +142,10 @@ Not reimbursed: minibar, movies, gym/spa, upgrades, first class flights, extra t
       tools: [],
       loop: { maxSteps: 1 },
     },
-    avgTokens: null,
-    avgSteps: null,
+    avgTokens: 579,
+    avgSteps: 1,
   },
-  maxTestTokens: null,
+  maxTestTokens: 1737,
   safetyRules: [],
 };
 

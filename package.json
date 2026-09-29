@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start -p 3010",
     "lint": "next lint",
-    "test": "tsx --conditions=react-server --test 'src/**/__tests__/*.test.ts' 'challenges/**/__tests__/*.test.ts'"
+    "test": "tsx --conditions=react-server --test 'src/**/__tests__/*.test.ts' 'challenges/**/__tests__/*.test.ts'",
+    "score": "tsx --conditions=react-server --env-file=.env.local scripts/score.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",

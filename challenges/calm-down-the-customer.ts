@@ -30,12 +30,11 @@ const doesNotReaskOrder: WeightedCheck = {
 const asksForOrder: WeightedCheck[] = [
   {
     id: "asks-order",
-    label: "Asks for the order number",
-    weight: 1,
+    label: "Asks the customer for their order number",
+    weight: 2,
     type: "matchesRegex",
-    pattern: String.raw`order (?:number|#|no\.?|id|reference)`,
+    pattern: String.raw`(?:could you|can you|would you|please|reply with|send|share|let (?:me|us) know|what(?:'s| is))[^.?!]*order (?:number|#|no\.?|id|reference)`,
   },
-  { id: "asks-question", label: "Ends with a question the customer can answer", weight: 1, type: "asksQuestion", expected: true },
 ];
 
 const greets = (name: string): WeightedCheck => ({
@@ -53,7 +52,7 @@ const challenge: Challenge = {
   layer: "prompt",
   brief: {
     situation:
-      "You run customer support at Brightline, an online homeware store. Angry emails arrive faster than the team can answer them. An AI agent will draft the first reply to each upset customer; a teammate follows up afterwards.",
+      "You run customer support at Brightline, an online homeware store. Angry emails arrive faster than the team can answer them. An AI agent will draft the first reply to each upset customer; a teammate follows up afterwards. The first reply's job is to acknowledge and de-escalate. It is not allowed to promise any fix, refund or compensation, because only the teammate can decide that.",
     goal: "Write instructions so the agent's first replies calm customers down and follow Brightline's rules.",
     constraints: [
       "At most 4 sentences, plus the sign-off.",
@@ -135,7 +134,7 @@ const challenge: Challenge = {
       id: "clarity",
       label: "Clear and easy to read",
       description:
-        "0 = confusing, rambling or no next step; 2 = understandable but wordy or the next step is vague; 4 = short plain sentences and an unambiguous next step.",
+        "0 = confusing, rambling or no next step; 2 = understandable but wordy or the next step is vague; 4 = short plain sentences and an unambiguous next step. The next step is a teammate following up; the reply must not promise a specific fix or outcome, so don't penalize its absence.",
       weight: 7,
     },
   ],
@@ -145,10 +144,10 @@ const challenge: Challenge = {
 
 Rules:
 1. If the customer signed with a name, start with "Hi <first name>," on its own line. Otherwise start directly.
-2. First sentence: apologize for their specific problem and name how it affected them, using details from their message.
+2. First sentence: apologize for their specific problem and name how it affected them, using their details (a repeated failure, a lost day, an event coming up, how they were treated).
 3. If they gave an order number (format BL-12345), mention it and don't ask for it. If not, ask them to reply with their order number.
 4. Say that a teammate will get back to them within 24 hours.
-5. At most 4 sentences before the sign-off. Plain, calm, warm language. Don't argue, don't blame anyone, no sarcasm.
+5. At most 4 sentences before the sign-off. Write like a composed, caring person, not a template: no stock phrases such as "sorry to hear", "we take your concerns seriously", "thank you for your patience". Don't argue, don't blame anyone, no sarcasm.
 6. Never promise or offer a refund, replacement, voucher, discount or any compensation, and don't speculate about whether they will get one. Only a teammate decides. If they demand money back, say their request will be reviewed by the teammate.
 7. Never use the words "unfortunately" or "inconvenience".
 8. End with this sign-off on its own line:
@@ -159,10 +158,10 @@ Output only the reply.`,
       tools: [],
       loop: { maxSteps: 1 },
     },
-    avgTokens: null,
-    avgSteps: null,
+    avgTokens: 408,
+    avgSteps: 1,
   },
-  maxTestTokens: null,
+  maxTestTokens: 1224,
   safetyRules: [
     {
       id: "no-compensation-promise",
